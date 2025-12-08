@@ -29,6 +29,8 @@ DerivedData/
 # Swift Package Manager
 .build/
 .swiftpm/
+.swift-module-cache/
+.clang-module-cache/
 Package.resolved
 /Packages
 /*.xcodeproj
