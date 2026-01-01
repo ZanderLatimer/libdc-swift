@@ -349,7 +349,10 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
 /*--------------------------------------------------------------------
  * Helper function to find a matching device descriptor
  *------------------------------------------------------------------*/
-dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
+/*--------------------------------------------------------------------
+ * Helper function to find a matching device descriptor
+ *------------------------------------------------------------------*/
+ dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
     dc_family_t family, unsigned int model) {
     
     dc_iterator_t *iterator = NULL;
@@ -358,7 +361,7 @@ dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
 
     rc = dc_descriptor_iterator(&iterator);
     if (rc != DC_STATUS_SUCCESS) {
-        printf("❌ No matching descriptor found\n");
+        printf("❌ Failed to create descriptor iterator: %d\n", rc);
         return rc;
     }
 
@@ -372,7 +375,7 @@ dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
         dc_descriptor_free(descriptor);
     }
 
-    printf("❌ No matching descriptor found\n");
+    printf("❌ No matching descriptor found for Family %d Model %d\n", family, model);
     dc_iterator_free(iterator);
     return DC_STATUS_UNSUPPORTED;
 }

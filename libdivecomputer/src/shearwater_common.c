@@ -375,9 +375,9 @@
  
 	 // Validate the packet length.
 	 unsigned int length = packet[2];
-	 if (length < 1 || length - 1 + 4 != n || length - 1 > osize) {
-		 ERROR (abstract->context, "Invalid packet header.");
-		 return DC_STATUS_PROTOCOL;
+	 if (length < 1 || n < length - 1 + 4 || length - 1 > osize) {
+		ERROR (abstract->context, "Invalid packet header. Expected at least %u bytes, got %u", length - 1 + 4, n);
+		return DC_STATUS_PROTOCOL;
 	 }
  
 	 memcpy (output, packet + 4, length - 1);
@@ -496,17 +496,23 @@
 		 }
 	 }
  
-	 // Transfer the quit request.
-	 rc = shearwater_common_transfer (device, req_quit, sizeof (req_quit), response, 2, &n);
-	 if (rc != DC_STATUS_SUCCESS) {
-		 return rc;
-	 }
- 
-	 // Verify the quit response.
-	 if (n != 2 || response[0] != 0x77 || response[1] != 0x00) {
-		 ERROR (abstract->context, "Unexpected response packet.");
-		 return DC_STATUS_PROTOCOL;
-	 }
+	// Transfer the quit request.
+    // FIX 1: Increase buffer size from 2 to sizeof(response) to allow receiving the 3-byte NAK packet
+    rc = shearwater_common_transfer (device, req_quit, sizeof (req_quit), response, sizeof(response), &n);
+    if (rc != DC_STATUS_SUCCESS) {
+        return rc;
+    }
+
+    // Verify the quit response.
+    if (n == 2 && response[0] == 0x77 && response[1] == 0x00) {
+        // Standard success case (77 00)
+    } else if (n == 3 && response[0] == 0x7F && response[1] == 0x37 && response[2] == 0x24) {
+        // FIX 2: Ignore ISO14229 Request Sequence Error (0x24) on Quit.
+        // The device has likely already auto-closed the session.
+    } else {
+        ERROR (abstract->context, "Unexpected response packet.");
+        return DC_STATUS_PROTOCOL;
+    }
  
 	 // Update and emit a progress event.
 	 if (progress) {

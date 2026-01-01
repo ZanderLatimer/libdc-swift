@@ -106,6 +106,9 @@
  #define PREDATOR 2
  #define PETREL   3
  #define TERIC    8
+ #define PEREGRINE    12
+ #define PEREGRINE_TX 13
+ #define TERN         14
  
  #define UNDEFINED 0xFFFFFFFF
  
@@ -357,6 +360,7 @@
 	 // footer data, it's more complicated because of the new 32 byte
 	 // block structure.
 	 unsigned int pnf = parser->petrel ? array_uint16_be (data) != 0xFFFF : 0;
+	 ERROR(abstract->context, "DEBUG: Parsing started. Model=%u, PNF=%u, DataSize=%u", parser->model, pnf, size);
 	 unsigned int headersize = 0;
 	 unsigned int footersize = 0;
 	 if (!pnf) {
@@ -642,11 +646,19 @@
 	 // and there opening/closing record 5 (which contains AI information plus
 	 // the sample interval) don't appear to exist - so don't mark them as required
 	 for (unsigned int i = 0; i <= 4; ++i) {
-		 if (parser->opening[i] == UNDEFINED || parser->closing[i] == UNDEFINED) {
-			 ERROR (abstract->context, "Opening or closing record %u not found.", i);
-			 return DC_STATUS_DATAFORMAT;
-		 }
-	 }
+		ERROR(abstract->context, "DEBUG: Checking Record %u (Opening=%u, Closing=%u)", i, parser->opening[i], parser->closing[i]);
+		// Peregrine (12), Peregrine TX (13), and Tern (14) are Rec/Nitrox computers
+		// We skip records 1 (Helium), 2 (Deco/Extra), and 3 (CCR Sensors) as they may not be present.
+		if ((parser->model == 9 || parser->model == 12 || parser->model == 13 || parser->model == 14) && (i == 1 || i == 2 || i == 3)) {
+			ERROR(abstract->context, "DEBUG: Skipping check for Record %u (Allowed missing for Model %u)", i, parser->model);
+            continue;
+        }
+
+		if (parser->opening[i] == UNDEFINED || parser->closing[i] == UNDEFINED) {
+			ERROR (abstract->context, "Opening or closing record %u not found.", i);
+			return DC_STATUS_DATAFORMAT;
+		}
+	}
  
 	 // Cache sensor calibration for later use
 	 unsigned int nsensors = 0, ndefaults = 0;
@@ -692,6 +704,9 @@
 			 data[parser->final + 13],
 			 array_uint32_be (data + parser->final + 2),
 			 bcd2dec (data[parser->final + 10]));
+		 ERROR(abstract->context, "DEBUG: Final block found. Updated Model to=%u", parser->model);
+	 } else {
+		ERROR(abstract->context, "DEBUG: Final block is UNDEFINED. Using default Model=%u", parser->model);
 	 }
  
 	 // Fix the Teric tank serial number.
