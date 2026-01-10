@@ -186,6 +186,7 @@ public struct DiveData: Identifiable {
     
     // Basic dive data
     public var maxDepth: Double
+    public var avgDepth: Double
     public var divetime: TimeInterval
     public var temperature: Double
     
@@ -349,6 +350,7 @@ public struct DiveData: Identifiable {
         number: Int,
         datetime: Date,
         maxDepth: Double,
+        avgDepth: Double,
         divetime: TimeInterval,
         temperature: Double,
         profile: [DiveProfilePoint],
@@ -376,6 +378,7 @@ public struct DiveData: Identifiable {
         self.number = number
         self.datetime = datetime
         self.maxDepth = maxDepth
+        self.avgDepth = avgDepth
         self.divetime = divetime
         self.temperature = temperature
         self.profile = profile

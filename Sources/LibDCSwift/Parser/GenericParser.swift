@@ -145,6 +145,31 @@ public class GenericParser {
         func setDecoModel(_ model: dc_decomodel_t) {
             data.decoModel = GenericParser.convertDecoModel(model)
         }
+
+        /// Calculates time-weighted average depth from profile data
+        /// - Returns: Average depth in meters, or 0 if profile is empty
+        func calculateAverageDepth() -> Double {
+            guard data.profile.count >= 2 else {
+                return data.profile.first?.depth ?? 0
+            }
+
+            var weightedSum: Double = 0
+            var totalTime: TimeInterval = 0
+
+            // Calculate time-weighted average using trapezoidal rule
+            for i in 0..<(data.profile.count - 1) {
+                let currentPoint = data.profile[i]
+                let nextPoint = data.profile[i + 1]
+
+                let timeInterval = nextPoint.time - currentPoint.time
+                let avgDepthSegment = (currentPoint.depth + nextPoint.depth) / 2.0
+
+                weightedSum += avgDepthSegment * timeInterval
+                totalTime += timeInterval
+            }
+
+            return totalTime > 0 ? weightedSum / totalTime : 0
+        }
     }
     
     /// Parses raw dive data into a structured DiveData object
@@ -331,7 +356,38 @@ public class GenericParser {
         } else {
             diveMode = .openCircuit  // Default to OC if not specified
         }
-        
+
+        // Get environmental data fields
+        if let salinity: dc_salinity_t = getField(parser, type: DC_FIELD_SALINITY) {
+            wrapper.data.salinity = salinity.type == DC_WATER_SALT ? 1.025 : 1.000
+        }
+
+        if let atmospheric: Double = getField(parser, type: DC_FIELD_ATMOSPHERIC) {
+            wrapper.data.atmospheric = atmospheric
+        }
+
+        // Get temperature fields
+        if let tempMin: Double = getField(parser, type: DC_FIELD_TEMPERATURE_MINIMUM) {
+            wrapper.data.tempMinimum = tempMin
+        }
+
+        if let tempMax: Double = getField(parser, type: DC_FIELD_TEMPERATURE_MAXIMUM) {
+            wrapper.data.tempMaximum = tempMax
+        }
+
+        if let tempSurf: Double = getField(parser, type: DC_FIELD_TEMPERATURE_SURFACE) {
+            wrapper.data.tempSurface = tempSurf
+        }
+
+        // Get location if available
+        if let location: dc_location_t = getField(parser, type: DC_FIELD_LOCATION) {
+            wrapper.data.location = Location(
+                latitude: location.latitude,
+                longitude: location.longitude,
+                altitude: location.altitude
+            )
+        }
+
         // Create date from components
         var dateComponents = DateComponents()
         dateComponents.year = Int(datetime.year)
@@ -350,6 +406,7 @@ public class GenericParser {
             number: diveNumber,
             datetime: date,
             maxDepth: wrapper.data.maxDepth,
+            avgDepth: wrapper.calculateAverageDepth(),
             divetime: wrapper.data.maxTime,
             temperature: wrapper.data.tempMinimum,
             profile: wrapper.data.profile,
