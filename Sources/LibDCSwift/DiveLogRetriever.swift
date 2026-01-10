@@ -191,14 +191,7 @@ public class DiveLogRetriever {
                 }
 
                 let deviceName = device.name ?? "Unknown Device"
-                
-                // --- DEBUG: FORCE FULL DOWNLOAD ---
-                // We intentionally pass nil/0 to clear the fingerprint in the C library.
-                // This forces it to download ALL dives found in the manifest.
-                _ = dc_device_set_fingerprint(dcDevice, nil, 0)
-                
-                // NOTE: The original logic below is commented out to force the download.
-                /*
+
                 var storedFingerprint: Data? = nil
                 if devicePtr.pointee.have_devinfo != 0 {
                     let serial = String(format: "%08x", devicePtr.pointee.devinfo.serial)
@@ -208,14 +201,12 @@ public class DiveLogRetriever {
                 if storedFingerprint == nil {
                     _ = dc_device_set_fingerprint(dcDevice, nil, 0)
                 }
-                */
-                // ----------------------------------
 
                 let context = CallbackContext(
                     viewModel: viewModel,
                     deviceName: deviceName,
                     deviceUUID: device.identifier.uuidString,
-                    storedFingerprint: nil, // Pass nil so Swift doesn't stop early either
+                    storedFingerprint: storedFingerprint,
                     bluetoothManager: bluetoothManager
                 )
                 context.devicePtr = devicePtr
@@ -232,13 +223,39 @@ public class DiveLogRetriever {
                 devicePtr.pointee.lookup_fingerprint = fingerprintLookup
                 
                 logInfo("🔄 Starting dive enumeration (Force Full Download)...")
+
+                // Retry logic for ISO14229 protocol errors (Peregrine TX and similar devices)
+                // Note: For now, we do NOT retry because the device needs a full power cycle
+                // between failed attempts. Simply calling dc_device_foreach again doesn't
+                // reset the device's internal state properly.
+
                 let enumStatus = dc_device_foreach(dcDevice, diveCallbackClosure, contextPtr)
-                
+
+                // Log the exact error code for debugging
+                if enumStatus != DC_STATUS_SUCCESS {
+                    let errorName: String
+                    switch enumStatus {
+                    case DC_STATUS_UNSUPPORTED: errorName = "UNSUPPORTED"
+                    case DC_STATUS_INVALIDARGS: errorName = "INVALIDARGS"
+                    case DC_STATUS_NOMEMORY: errorName = "NOMEMORY"
+                    case DC_STATUS_NODEVICE: errorName = "NODEVICE"
+                    case DC_STATUS_NOACCESS: errorName = "NOACCESS"
+                    case DC_STATUS_IO: errorName = "IO"
+                    case DC_STATUS_TIMEOUT: errorName = "TIMEOUT"
+                    case DC_STATUS_PROTOCOL: errorName = "PROTOCOL"
+                    case DC_STATUS_DATAFORMAT: errorName = "DATAFORMAT"
+                    case DC_STATUS_CANCELLED: errorName = "CANCELLED"
+                    default: errorName = "UNKNOWN(\(enumStatus))"
+                    }
+                    logError("❌ dc_device_foreach returned DC_STATUS_\(errorName) (code: \(enumStatus))")
+                    logError("   Context: hasNewDives=\(context.hasNewDives), logCount=\(context.logCount)")
+                }
+
                 progressTimer.invalidate()
-                
+
                 DispatchQueue.main.async {
                     if enumStatus != DC_STATUS_SUCCESS {
-                        viewModel.setDetailedError("Download incomplete", status: enumStatus)
+                        viewModel.setDetailedError("Download incomplete - DC_STATUS error code: \(enumStatus)", status: enumStatus)
                         completion(false)
                     } else {
                         if context.hasNewDives, let lastFP = context.lastFingerprint, let serial = context.deviceSerial {

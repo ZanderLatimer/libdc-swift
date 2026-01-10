@@ -183,29 +183,33 @@ public class CoreBluetoothManager: NSObject, CoreBluetoothManagerProtocol, Obser
         return true
     }
     
-    @objc public func readDataPartial(_ requested: Int32) -> Data! {
+    @objc public func readDataPartial(_ requested: Int32) -> Data? {
+        let requestedInt = Int(requested)
         let startTime = Date()
-        let partialTimeout: TimeInterval = 0.5
-        
-        while true {
+        let timeout: TimeInterval = 3.0
+
+        while Date().timeIntervalSince(startTime) < timeout {
             var outData: Data?
+
             queue.sync {
-                if receivedData.count > 0 {
-                    let amount = min(Int(requested), receivedData.count)
+                if !receivedData.isEmpty {
+                    // IMPORTANT: We take EXACTLY what was requested, no more.
+                    let amount = min(requestedInt, receivedData.count)
                     outData = receivedData.prefix(amount)
                     receivedData.removeSubrange(0..<amount)
                 }
             }
-            
+
             if let data = outData {
                 return data
             }
-            
-            if Date().timeIntervalSince(startTime) > partialTimeout {
-                return nil
-            }
-            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.005))
+
+            // High-precision sleep to avoid blocking the thread while
+            // waiting for the radio to deliver the next packet.
+            Thread.sleep(forTimeInterval: 0.002) // 2ms
         }
+
+        return nil
     }
     
     // MARK: - Device Management

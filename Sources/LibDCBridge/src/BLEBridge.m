@@ -36,18 +36,15 @@ bool connectToBLEDevice(ble_object_t *io, const char *deviceAddress) {
         return false;
     }
     
-    // Wait for initial connection
     [NSThread sleepForTimeInterval:1.0];
-    
-    // Discover services
+
     success = [manager discoverServices];
     if (!success) {
         NSLog(@"Service discovery failed");
         [manager close];
         return false;
     }
-    
-    // Enable notifications
+
     success = [manager enableNotifications];
     if (!success) {
         NSLog(@"Failed to enable notifications");
@@ -88,36 +85,19 @@ dc_status_t ble_read(ble_object_t *io, void *buffer, size_t requested, size_t *a
     if (!io || !buffer || !actual) {
         return DC_STATUS_INVALIDARGS;
     }
-    
+
     Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
     id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
-    uint8_t *outPtr = (uint8_t *)buffer;
-    size_t total = 0;
-    
-    // Keep reading until we've gathered 'requested' bytes or no more data is arriving
-    while (total < requested) {
-        size_t needed = requested - total;
-        // readDataPartial returns up to 'needed' bytes but might return fewer
-        NSData *partialData = [manager readDataPartial:(int)needed];
-        
-        // If no data arrived this iteration, break out
-        if (!partialData || partialData.length == 0) {
-            break;
-        }
-        
-        // Copy new data into our output buffer
-        memcpy(outPtr + total, partialData.bytes, partialData.length);
-        total += partialData.length;
-    }
-    
-    // If we received no data at all, treat it as an I/O error
-    if (total == 0) {
+
+    // Return one BLE packet at a time to preserve packet boundaries for SLIP framing
+    NSData *partialData = [manager readDataPartial:(int)requested];
+
+    if (!partialData || partialData.length == 0) {
         *actual = 0;
         return DC_STATUS_IO;
     }
-    
-    // Otherwise, we successfully read some or all requested bytes
-    *actual = total;
+    memcpy(buffer, partialData.bytes, partialData.length);
+    *actual = partialData.length;
     return DC_STATUS_SUCCESS;
 }
 
