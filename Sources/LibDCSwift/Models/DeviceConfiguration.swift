@@ -24,6 +24,7 @@ import LibDCBridge
     
     // List of selectable models for the UI
     public static let supportedModels: [ComputerModel] = [
+        // Shearwater computers
         ComputerModel(name: "Shearwater Peregrine", family: .shearwaterPetrel, modelID: 9),
         ComputerModel(name: "Shearwater Peregrine TX", family: .shearwaterPetrel, modelID: 13),
         ComputerModel(name: "Shearwater Petrel", family: .shearwaterPetrel, modelID: 3),
@@ -35,10 +36,65 @@ import LibDCBridge
         ComputerModel(name: "Shearwater Teric", family: .shearwaterPetrel, modelID: 8),
         ComputerModel(name: "Shearwater Tern", family: .shearwaterPetrel, modelID: 12),
         ComputerModel(name: "Shearwater NERD 2", family: .shearwaterPetrel, modelID: 7),
+        
+        // Suunto computers
         ComputerModel(name: "Suunto EON Steel", family: .suuntoEonSteel, modelID: 0),
         ComputerModel(name: "Suunto EON Core", family: .suuntoEonSteel, modelID: 0),
         ComputerModel(name: "Suunto D5", family: .suuntoEonSteel, modelID: 0),
+        
+        // Scubapro / Uwatec computers
         ComputerModel(name: "Scubapro G2", family: .uwatecSmart, modelID: 0),
+        ComputerModel(name: "Scubapro G3", family: .uwatecSmart, modelID: 0),
+        
+        // Heinrichs Weikamp computers
+        ComputerModel(name: "Heinrichs Weikamp OSTC 3", family: .hwOstc3, modelID: 0),
+        ComputerModel(name: "Heinrichs Weikamp OSTC 4", family: .hwOstc3, modelID: 3),
+        ComputerModel(name: "Heinrichs Weikamp OSTC Plus", family: .hwOstc3, modelID: 1),
+        ComputerModel(name: "Heinrichs Weikamp OSTC 2N", family: .hwOstc3, modelID: 2),
+        ComputerModel(name: "Heinrichs Weikamp OSTC Sport", family: .hwOstc3, modelID: 11),
+        
+        // Oceanic / Aeris / Sherwood / Hollis computers
+        ComputerModel(name: "Oceanic Geo 4.0", family: .oceanicAtom2, modelID: 0),
+        ComputerModel(name: "Oceanic Veo 4.0", family: .oceanicAtom2, modelID: 0),
+        ComputerModel(name: "Oceanic Pro Plus 4", family: .oceanicAtom2, modelID: 0),
+        ComputerModel(name: "Oceanic Atom 3.1", family: .oceanicAtom2, modelID: 0),
+        
+        // Pelagic Pressure Systems (Oceanic, Aqua Lung, Sherwood, Tusa)
+        ComputerModel(name: "Pelagic i330R", family: .pelagicI330R, modelID: 0),
+        ComputerModel(name: "Aqualung i330R", family: .pelagicI330R, modelID: 0),
+        ComputerModel(name: "Sherwood Wisdom 4", family: .pelagicI330R, modelID: 0),
+        ComputerModel(name: "Oceanic DSX", family: .pelagicI330R, modelID: 0),
+        
+        // Mares computers
+        ComputerModel(name: "Mares Icon HD", family: .maresIconHD, modelID: 0),
+        ComputerModel(name: "Mares Puck Pro", family: .maresIconHD, modelID: 0),
+        ComputerModel(name: "Mares Smart", family: .maresIconHD, modelID: 0),
+        ComputerModel(name: "Mares Quad", family: .maresIconHD, modelID: 0),
+        
+        // DeepSix computers
+        ComputerModel(name: "DeepSix Excursion", family: .deepsixExcursion, modelID: 0),
+        
+        // Deepblu computers
+        ComputerModel(name: "Deepblu Cosmiq+", family: .deepbluCosmiq, modelID: 0),
+        
+        // Oceans computers
+        ComputerModel(name: "Oceans S1", family: .oceansS1, modelID: 0),
+        
+        // McLean computers
+        ComputerModel(name: "McLean Extreme", family: .mcleanExtreme, modelID: 0),
+        
+        // Divesoft computers
+        ComputerModel(name: "Divesoft Freedom", family: .divesoftFreedom, modelID: 0),
+        
+        // Cressi computers
+        ComputerModel(name: "Cressi Goa", family: .cressiGoa, modelID: 0),
+        ComputerModel(name: "Cressi Cartesio", family: .cressiGoa, modelID: 0),
+        
+        // Dive System computers
+        ComputerModel(name: "Dive System iDive Easy", family: .diveSystem, modelID: 0),
+        ComputerModel(name: "Dive System iDive Color", family: .diveSystem, modelID: 0),
+        ComputerModel(name: "Dive System iDive Deep", family: .diveSystem, modelID: 0),
+        ComputerModel(name: "Dive System iDive Free", family: .diveSystem, modelID: 0),
     ]
 
     /// Represents the family of dive computers that support BLE communication.
