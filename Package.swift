@@ -59,17 +59,10 @@ let package = Package(
             dependencies: ["LibDCBridge", "Clibdivecomputer"],
             path: "Sources/LibDCSwift",
             sources: [
-                "LibDCSwift.swift",
-                "Logger.swift",
-                "BLEManager.swift",
                 "Models/DeviceConfiguration.swift",
                 "Models/DiveData.swift",
-                "Models/StoredDevice.swift",
                 "Models/SampleData.swift",
-                "Models/DeviceFingerprint.swift",
-                "ViewModels/DiveDataViewModel.swift",
-                "Parser/GenericParser.swift",
-                "DiveLogRetriever.swift"
+                "Parser/GenericParser.swift"
             ],
             cSettings: [
                 .headerSearchPath("../LibDCBridge/include"),

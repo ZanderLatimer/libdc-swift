@@ -3,12 +3,20 @@
 
 static id<CoreBluetoothManagerProtocol> bleManager = nil;
 
+void setBLEManager(id<CoreBluetoothManagerProtocol> manager) {
+    bleManager = manager;
+}
+
 void initializeBLEManager(void) {
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    bleManager = [CoreBluetoothManagerClass shared];
+    // No-op: manager is now injected via setBLEManager().
+    // Kept for C bridge compatibility (called by configuredc.c).
 }
 
 ble_object_t* createBLEObject(void) {
+    if (!bleManager) {
+        NSLog(@"BLEBridge: No BLE manager has been injected. Call setBLEManager() first.");
+        return NULL;
+    }
     ble_object_t* obj = malloc(sizeof(ble_object_t));
     obj->manager = (__bridge void *)bleManager;
     return obj;
@@ -21,51 +29,45 @@ void freeBLEObject(ble_object_t* obj) {
 }
 
 bool connectToBLEDevice(ble_object_t *io, const char *deviceAddress) {
-    if (!io || !deviceAddress) {
-        NSLog(@"Invalid parameters passed to connectToBLEDevice");
+    if (!io || !deviceAddress || !bleManager) {
+        NSLog(@"BLEBridge: Invalid parameters or no manager injected");
         return false;
     }
-    
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
+
     NSString *address = [NSString stringWithUTF8String:deviceAddress];
-    
-    bool success = [manager connectToDevice:address];
+
+    bool success = [bleManager connectToDevice:address];
     if (!success) {
-        NSLog(@"Failed to connect to device");
+        NSLog(@"BLEBridge: Failed to connect to device");
         return false;
     }
     
     // Wait for connection to complete by checking peripheral ready state
-    NSDate *timeout = [NSDate dateWithTimeIntervalSinceNow:10.0]; // 10 second timeout
+    NSDate *timeout = [NSDate dateWithTimeIntervalSinceNow:10.0];
     while ([[NSDate date] compare:timeout] == NSOrderedAscending) {
-        // Check if peripheral is ready using protocol method
-        if ([manager getPeripheralReadyState]) {
-            NSLog(@"Peripheral is ready for communication");
+        if ([bleManager getPeripheralReadyState]) {
             break;
         }
-        // Small sleep to avoid busy-waiting
         [NSThread sleepForTimeInterval:0.1];
     }
-    
-    // Final check if we're actually ready
-    if (![manager getPeripheralReadyState]) {
-        NSLog(@"Timeout waiting for peripheral to be ready");
-        [manager close];
+
+    if (![bleManager getPeripheralReadyState]) {
+        NSLog(@"BLEBridge: Timeout waiting for peripheral to be ready");
+        [bleManager close];
         return false;
     }
 
-    success = [manager discoverServices];
+    success = [bleManager discoverServices];
     if (!success) {
-        NSLog(@"Service discovery failed");
-        [manager close];
+        NSLog(@"BLEBridge: Service discovery failed");
+        [bleManager close];
         return false;
     }
 
-    success = [manager enableNotifications];
+    success = [bleManager enableNotifications];
     if (!success) {
-        NSLog(@"Failed to enable notifications");
-        [manager close];
+        NSLog(@"BLEBridge: Failed to enable notifications");
+        [bleManager close];
         return false;
     }
     
@@ -73,15 +75,13 @@ bool connectToBLEDevice(ble_object_t *io, const char *deviceAddress) {
 }
 
 bool discoverServices(ble_object_t *io) {
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
-    return [manager discoverServices];
+    if (!bleManager) return false;
+    return [bleManager discoverServices];
 }
 
 bool enableNotifications(ble_object_t *io) {
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
-    return [manager enableNotifications];
+    if (!bleManager) return false;
+    return [bleManager enableNotifications];
 }
 
 dc_status_t ble_set_timeout(ble_object_t *io, int timeout) {
@@ -99,15 +99,11 @@ dc_status_t ble_sleep(ble_object_t *io, unsigned int milliseconds) {
 
 dc_status_t ble_read(ble_object_t *io, void *buffer, size_t requested, size_t *actual)
 {
-    if (!io || !buffer || !actual) {
+    if (!io || !buffer || !actual || !bleManager) {
         return DC_STATUS_INVALIDARGS;
     }
 
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
-
-    // Return one BLE packet at a time to preserve packet boundaries for SLIP framing
-    NSData *partialData = [manager readDataPartial:(int)requested];
+    NSData *partialData = [bleManager readDataPartial:(int)requested];
 
     if (!partialData || partialData.length == 0) {
         *actual = 0;
@@ -119,11 +115,13 @@ dc_status_t ble_read(ble_object_t *io, void *buffer, size_t requested, size_t *a
 }
 
 dc_status_t ble_write(ble_object_t *io, const void *data, size_t size, size_t *actual) {
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
+    if (!bleManager) {
+        *actual = 0;
+        return DC_STATUS_IO;
+    }
     NSData *nsData = [NSData dataWithBytes:data length:size];
-    
-    if ([manager writeData:nsData]) {
+
+    if ([bleManager writeData:nsData]) {
         *actual = size;
         return DC_STATUS_SUCCESS;
     } else {
@@ -133,8 +131,7 @@ dc_status_t ble_write(ble_object_t *io, const void *data, size_t size, size_t *a
 }
 
 dc_status_t ble_close(ble_object_t *io) {
-    Class CoreBluetoothManagerClass = NSClassFromString(@"CoreBluetoothManager");
-    id<CoreBluetoothManagerProtocol> manager = [CoreBluetoothManagerClass shared];
-    [manager close];
+    if (!bleManager) return DC_STATUS_SUCCESS;
+    [bleManager close];
     return DC_STATUS_SUCCESS;
 }

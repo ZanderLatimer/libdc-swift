@@ -5,7 +5,6 @@
 #import <Foundation/Foundation.h>
 
 @protocol CoreBluetoothManagerProtocol <NSObject>
-+ (id)shared;
 - (BOOL)connectToDevice:(NSString *)address;
 - (BOOL)getPeripheralReadyState;
 - (BOOL)discoverServices;
@@ -15,8 +14,11 @@
 - (void)close;
 @end
 
+// Inject a BLE manager instance for the bridge layer to use.
+// Must be called before any libdivecomputer device operations.
+void setBLEManager(id<CoreBluetoothManagerProtocol> manager);
+
 #else
-// If we're compiling pure C (without Objective-C), provide an empty protocol definition
 typedef void * CoreBluetoothManagerProtocol;
 #endif
 

@@ -1,4 +1,0 @@
-module LibDCSwift {
-    umbrella header "LibDCSwift.h"
-    export *
-} 

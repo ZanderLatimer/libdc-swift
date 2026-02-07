@@ -213,7 +213,6 @@ public class GenericParser {
         let rc = create_parser_for_device(&parser, context, family.asDCFamily, model, diveData, size_t(dataSize))
 
         guard rc == DC_STATUS_SUCCESS, parser != nil else {
-            logError("Parser creation failed with status: \(rc)")
             throw ParserError.parserCreationFailed(rc)
         }
         
