@@ -18,6 +18,7 @@ ble_object_t* createBLEObject(void) {
         return NULL;
     }
     ble_object_t* obj = malloc(sizeof(ble_object_t));
+    if (!obj) return NULL;
     obj->manager = (__bridge void *)bleManager;
     return obj;
 }
@@ -115,9 +116,9 @@ dc_status_t ble_read(ble_object_t *io, void *buffer, size_t requested, size_t *a
 }
 
 dc_status_t ble_write(ble_object_t *io, const void *data, size_t size, size_t *actual) {
-    if (!bleManager) {
-        *actual = 0;
-        return DC_STATUS_IO;
+    if (!io || !data || !actual || !bleManager) {
+        if (actual) *actual = 0;
+        return DC_STATUS_INVALIDARGS;
     }
     NSData *nsData = [NSData dataWithBytes:data length:size];
 

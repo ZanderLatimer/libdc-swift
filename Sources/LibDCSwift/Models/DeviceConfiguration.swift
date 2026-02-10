@@ -242,7 +242,6 @@ public enum DeviceConfiguration {
         )
 
         guard status == DC_STATUS_SUCCESS, let data = deviceData else {
-            deviceData?.deallocate()
             return nil
         }
 
@@ -251,31 +250,44 @@ public enum DeviceConfiguration {
 
     // MARK: - Parser Context
 
+    private static let contextLock = NSLock()
     private static var context: OpaquePointer?
     
     public static func setupContext() {
+        contextLock.lock()
+        defer { contextLock.unlock() }
         guard context == nil else { return }
         _ = dc_context_new(&context)
     }
     
     public static func cleanupContext() {
+        contextLock.lock()
+        defer { contextLock.unlock() }
         guard let ctx = context else { return }
         dc_context_free(ctx)
         context = nil
     }
     
     public static func createParser(family: dc_family_t, model: UInt32, data: Data) -> OpaquePointer? {
-        guard let context else { return nil }
+        contextLock.lock()
+        let ctx = context
+        contextLock.unlock()
+        guard let ctx else { return nil }
 
         var parser: OpaquePointer?
-        let rc = create_parser_for_device(
-            &parser,
-            context,
-            family,
-            model,
-            [UInt8](data),
-            data.count
-        )
+        let rc = data.withUnsafeBytes { buffer -> dc_status_t in
+            guard let baseAddress = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                return DC_STATUS_INVALIDARGS
+            }
+            return create_parser_for_device(
+                &parser,
+                ctx,
+                family,
+                model,
+                baseAddress,
+                data.count
+            )
+        }
 
         guard rc == DC_STATUS_SUCCESS else { return nil }
         return parser

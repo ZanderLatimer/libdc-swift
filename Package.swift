@@ -22,11 +22,7 @@ let package = Package(
         .target(
             name: "Clibdivecomputer",
             path: "libdivecomputer",
-            exclude: [
-                "doc",
-                "m4",
-                "src/serial_win32.c"
-            ],
+            exclude: [],
             publicHeadersPath: "include",
             cSettings: [
                 .headerSearchPath("include/libdivecomputer"),
@@ -71,6 +67,16 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("CoreBluetooth"),
                 .linkedFramework("Foundation")
+            ]
+        ),
+        .testTarget(
+            name: "LibDCSwiftTests",
+            dependencies: ["LibDCSwift", "LibDCBridge", "Clibdivecomputer"],
+            path: "Tests/LibDCSwiftTests",
+            cSettings: [
+                .headerSearchPath("../../Sources/LibDCBridge/include"),
+                .headerSearchPath("../../libdivecomputer/include"),
+                .headerSearchPath("../../libdivecomputer/src")
             ]
         )
     ]

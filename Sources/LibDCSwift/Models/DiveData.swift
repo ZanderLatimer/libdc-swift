@@ -1,7 +1,6 @@
 import Foundation
 import Clibdivecomputer
 import LibDCBridge
-import SwiftUI
 
 public enum DiveEvent: Hashable {
     case ascent
@@ -13,20 +12,6 @@ public enum DiveEvent: Hashable {
     case ceiling
     case po2
     case deepStop
-    
-    public var color: Color {
-        switch self {
-        case .ascent: return .red  // Warning color for ascent rate
-        case .violation: return .red  // Warning color for violations
-        case .decoStop: return .orange  // Important but not critical
-        case .gasChange: return .blue  // Informational
-        case .bookmark: return .yellow  // User marker
-        case .safetyStop: return .green  // Good practice
-        case .ceiling: return .red  // Warning color for ceiling violations
-        case .po2: return .red  // Warning color for PPO2
-        case .deepStop: return .purple  // Distinct from regular stops
-        }
-    }
     
     public var description: String {
         switch self {
@@ -43,19 +28,6 @@ public enum DiveEvent: Hashable {
         }
     }
     
-    public var icon: String {
-        switch self {
-        case .ascent: return "exclamationmark.triangle"
-        case .violation: return "exclamationmark.circle"
-        case .decoStop: return "arrow.down.circle"
-        case .gasChange: return "bubble.right"
-        case .bookmark: return "bookmark"
-        case .safetyStop: return "checkmark.circle"
-        case .ceiling: return "arrow.up.circle"
-        case .po2: return "aqi.high"
-        case .deepStop: return "arrow.down.circle.fill"
-        }
-    }
 }
 
 public struct DiveProfilePoint {
@@ -136,82 +108,6 @@ public struct GasMix {
         self.oxygen = oxygen
         self.nitrogen = nitrogen
         self.usage = usage
-    }
-}
-
-public struct TankInfo {
-    public let gasMix: Int  // Index to gas mix
-    public let type: dc_tankvolume_t
-    public let volume: Double
-    public let workPressure: Double
-    public let beginPressure: Double
-    public let endPressure: Double
-    public let usage: dc_usage_t
-    
-    public init(gasMix: Int, type: dc_tankvolume_t, volume: Double, workPressure: Double, 
-               beginPressure: Double, endPressure: Double, usage: dc_usage_t) {
-        self.gasMix = gasMix
-        self.type = type
-        self.volume = volume
-        self.workPressure = workPressure
-        self.beginPressure = beginPressure
-        self.endPressure = endPressure
-        self.usage = usage
-    }
-}
-
-public struct DecoModel {
-    public enum DecoType {
-        case none
-        case buhlmann
-        case vpm
-        case rgbm
-        case dciem
-        
-        public var description: String {
-            switch self {
-            case .none: return "None"
-            case .buhlmann: return "Bühlmann"
-            case .vpm: return "VPM"
-            case .rgbm: return "RGBM"
-            case .dciem: return "DCIEM"
-            }
-        }
-    }
-    
-    public let type: DecoType
-    public let conservatism: Int
-    public let gfLow: UInt32?
-    public let gfHigh: UInt32?
-    
-    public var description: String {
-        switch type {
-        case .buhlmann:
-            if let low = gfLow, let high = gfHigh {
-                return "Bühlmann GF \(low)/\(high)"
-            }
-            return "Bühlmann"
-        case .none:
-            return "None"
-        default:
-            if conservatism != 0 {
-                return "\(type.description) (\(conservatism))"
-            } else {
-                return type.description
-            }
-        }
-    }
-}
-
-public struct Location {
-    public let latitude: Double
-    public let longitude: Double
-    public let altitude: Double
-    
-    public init(latitude: Double, longitude: Double, altitude: Double) {
-        self.latitude = latitude
-        self.longitude = longitude
-        self.altitude = altitude
     }
 }
 

@@ -50,18 +50,6 @@ static const dc_iostream_vtable_t ble_iostream_vtable = {
 };
 
 /*--------------------------------------------------------------------
- * Helper to print hex dumps for debugging
- *------------------------------------------------------------------*/
-static void debug_hexdump(const char *prefix, const void *data, size_t size) {
-    const unsigned char *p = (const unsigned char *)data;
-    printf("DC_IO [%s] (%zu bytes): ", prefix, size);
-    for (size_t i = 0; i < size; i++) {
-        printf("%02X ", p[i]);
-    }
-    printf("\n");
-}
-
-/*--------------------------------------------------------------------
  * Creates a BLE iostream instance
  *------------------------------------------------------------------*/
 static dc_status_t ble_iostream_create(dc_iostream_t **out, dc_context_t *context, ble_object_t *bleobj)
@@ -101,39 +89,7 @@ static dc_status_t ble_stream_set_timeout(dc_iostream_t *iostream, int timeout)
 static dc_status_t ble_stream_read(dc_iostream_t *iostream, void *data, size_t size, size_t *actual)
 {
     ble_stream_t *s = (ble_stream_t *) iostream;
-    dc_status_t rc = ble_read(s->ble_object, data, size, actual);
-
-    if (rc == DC_STATUS_SUCCESS && actual && *actual > 0) {
-        // printf("DC_IO [READ_DEBUG] Requested: %zu, Received: %zu, Transport: %d\n",
-        //        size, *actual, iostream->transport);
-        // debug_hexdump("READ", data, *actual);
-
-        // For BLE transport, show what would be processed after skipping header
-        if (iostream->transport == DC_TRANSPORT_BLE && *actual >= 2) {
-            // printf("DC_IO [READ_DEBUG] After BLE header skip (first 2 bytes):\n");
-            // debug_hexdump("READ_AFTER_SKIP", (unsigned char*)data + 2, *actual - 2);
-
-            // Show the expected packet structure
-            unsigned char *packet = (unsigned char*)data;
-            if (*actual >= 6) {
-                // printf("DC_IO [READ_DEBUG] BLE Header: [0]=0x%02X [1]=0x%02X\n", packet[0], packet[1]);
-                // printf("DC_IO [READ_DEBUG] SLIP Packet: [2]=0x%02X [3]=0x%02X [4]=0x%02X [5]=0x%02X\n",
-                //        packet[2], packet[3], packet[4], packet[5]);
-
-                // If this looks like a response packet (starts with 01 FF at offset 2)
-                if (packet[2] == 0x01 && packet[3] == 0xFF && *actual >= 7) {
-                    unsigned int length = packet[4];
-                    // printf("DC_IO [READ_DEBUG] Length field: 0x%02X (%u decimal)\n", length, length);
-                    // printf("DC_IO [READ_DEBUG] Expected total size: %u (length-1+4) = %u\n",
-                    //        length, length - 1 + 4);
-                    // printf("DC_IO [READ_DEBUG] Actual size after BLE skip: %zu\n", *actual - 2);
-                    // printf("DC_IO [READ_DEBUG] Difference: %zd bytes\n", (*actual - 2) - (length - 1 + 4));
-                }
-            }
-        }
-    }
-
-    return rc;
+    return ble_read(s->ble_object, data, size, actual);
 }
 
 /*--------------------------------------------------------------------
@@ -141,9 +97,6 @@ static dc_status_t ble_stream_read(dc_iostream_t *iostream, void *data, size_t s
  *------------------------------------------------------------------*/
 static dc_status_t ble_stream_write(dc_iostream_t *iostream, const void *data, size_t size, size_t *actual)
 {
-    // Log all writes
-    // debug_hexdump("WRITE", data, size);
-    
     ble_stream_t *s = (ble_stream_t *) iostream;
     return ble_write(s->ble_object, data, size, actual);
 }
@@ -162,7 +115,6 @@ static dc_status_t ble_stream_ioctl(dc_iostream_t *iostream, unsigned int reques
  *------------------------------------------------------------------*/
 static dc_status_t ble_stream_sleep(dc_iostream_t *iostream, unsigned int milliseconds)
 {
-    // printf("DC_IO [SLEEP] %u ms\n", milliseconds);
     ble_stream_t *s = (ble_stream_t *) iostream;
     return ble_sleep(s->ble_object, milliseconds);
 }
@@ -172,7 +124,6 @@ static dc_status_t ble_stream_sleep(dc_iostream_t *iostream, unsigned int millis
  *------------------------------------------------------------------*/
 static dc_status_t ble_stream_close(dc_iostream_t *iostream)
 {
-    printf("DC_IO [CLOSE]\n");
     ble_stream_t *s = (ble_stream_t *) iostream;
     dc_status_t rc = ble_close(s->ble_object);
     freeBLEObject(s->ble_object);
@@ -184,7 +135,7 @@ static dc_status_t ble_stream_close(dc_iostream_t *iostream)
  * Opens a BLE packet connection to a dive computer
  *------------------------------------------------------------------*/
 dc_status_t ble_packet_open(dc_iostream_t **iostream, dc_context_t *context, const char *devaddr, void *userdata) {
-    // Initialize the Swift BLE manager singletons
+    // Retained for C bridge compatibility (no-op after injection refactor)
     initializeBLEManager();
 
     // Create a BLE object
@@ -283,6 +234,11 @@ static void close_device_data(device_data_t *data) {
         data->fsize = 0;
     }
     
+    if (data->descriptor) {
+        dc_descriptor_free(data->descriptor);
+        data->descriptor = NULL;
+    }
+    
     if (data->model) {
         free((void*)data->model);
         data->model = NULL;
@@ -300,7 +256,6 @@ static void close_device_data(device_data_t *data) {
         dc_context_free(data->context);
         data->context = NULL;
     }
-    data->descriptor = NULL;
 }
 
 /*--------------------------------------------------------------------
@@ -332,6 +287,9 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
         return rc;
     }
 
+    // Store descriptor immediately so close_device_data can free it on failure
+    data->descriptor = descriptor;
+
     // Create BLE iostream
     rc = ble_packet_open(&data->iostream, data->context, devaddr, data);
     if (rc != DC_STATUS_SUCCESS) {
@@ -350,16 +308,12 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
 
     // Set up event handler
     unsigned int events = DC_EVENT_DEVINFO | DC_EVENT_PROGRESS | DC_EVENT_CLOCK;
-    // Updated to use the renamed callback function
     rc = dc_device_set_events(data->device, events, ble_device_event_cb, data);
     if (rc != DC_STATUS_SUCCESS) {
         printf("Failed to set event handler, rc=%d\n", rc);
         close_device_data(data);
         return rc;
     }
-
-    // Store the descriptor
-    data->descriptor = descriptor;
 
     // Store model string from descriptor
     if (descriptor) {
@@ -382,10 +336,7 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
 /*--------------------------------------------------------------------
  * Helper function to find a matching device descriptor
  *------------------------------------------------------------------*/
-/*--------------------------------------------------------------------
- * Helper function to find a matching device descriptor
- *------------------------------------------------------------------*/
- dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
+dc_status_t find_descriptor_by_model(dc_descriptor_t **out_descriptor,
     dc_family_t family, unsigned int model) {
     
     dc_iterator_t *iterator = NULL;
@@ -394,7 +345,7 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
 
     rc = dc_descriptor_iterator(&iterator);
     if (rc != DC_STATUS_SUCCESS) {
-        printf("❌ Failed to create descriptor iterator: %d\n", rc);
+        printf("Failed to create descriptor iterator: %d\n", rc);
         return rc;
     }
 
@@ -408,7 +359,7 @@ dc_status_t open_ble_device(device_data_t *data, const char *devaddr, dc_family_
         dc_descriptor_free(descriptor);
     }
 
-    printf("❌ No matching descriptor found for Family %d Model %d\n", family, model);
+    printf("No matching descriptor found for Family %d Model %d\n", family, model);
     dc_iterator_free(iterator);
     return DC_STATUS_UNSUPPORTED;
 }
@@ -454,11 +405,11 @@ static const struct name_pattern name_patterns[] = {
     { "Predator", "Shearwater", "Predator", MATCH_EXACT },
     { "Perdix 2", "Shearwater", "Perdix 2", MATCH_EXACT },
     { "Petrel 3", "Shearwater", "Petrel 3", MATCH_EXACT },
-    { "Petrel", "Shearwater", "Petrel 2", MATCH_EXACT },  // Both Petrel and Petrel 2 identify as "Petrel"
+    { "Petrel", "Shearwater", "Petrel 2", MATCH_EXACT },
     { "Perdix", "Shearwater", "Perdix", MATCH_EXACT },
     { "Teric", "Shearwater", "Teric", MATCH_EXACT },
     { "Peregrine TX", "Shearwater", "Peregrine TX", MATCH_EXACT },
-    { "Peregrine", "Shearwater", "Peregrine TX", MATCH_EXACT },  // BLE advertises as "Peregrine" but hardware is Peregrine TX
+    { "Peregrine", "Shearwater", "Peregrine TX", MATCH_EXACT },
     { "NERD 2", "Shearwater", "NERD 2", MATCH_EXACT },
     { "NERD", "Shearwater", "NERD", MATCH_EXACT },
     { "Tern", "Shearwater", "Tern", MATCH_EXACT },
@@ -546,7 +497,7 @@ dc_status_t find_descriptor_by_name(dc_descriptor_t **out_descriptor, const char
             // Create iterator to find matching descriptor
             rc = dc_descriptor_iterator(&iterator);
             if (rc != DC_STATUS_SUCCESS) {
-                printf("❌ Failed to create descriptor iterator: %d\n", rc);
+                printf("Failed to create descriptor iterator: %d\n", rc);
                 return rc;
             }
 

@@ -349,9 +349,8 @@ public class GenericParser {
         
         let samplesStatus = dc_parser_samples_foreach(parser, sampleCallback, wrapperPtr)
         
-        // Release the wrapper after we're done
-        Unmanaged<SampleDataWrapper>.fromOpaque(wrapperPtr).release()
         guard samplesStatus == DC_STATUS_SUCCESS else {
+            Unmanaged<SampleDataWrapper>.fromOpaque(wrapperPtr).release()
             throw ParserError.sampleProcessingFailed(samplesStatus)
         }
         
@@ -380,8 +379,6 @@ public class GenericParser {
         }
         
         // Get deco model
-        var decoValue = dc_decomodel_t()
-        _ = dc_parser_get_field(parser, DC_FIELD_DECOMODEL, 0, &decoValue)
         if let decoModel: dc_decomodel_t = getField(parser, type: DC_FIELD_DECOMODEL) {
             wrapper.setDecoModel(decoModel)
         }
@@ -442,6 +439,11 @@ public class GenericParser {
         dateComponents.second = Int(datetime.second)
         
         let calendar = Calendar(identifier: .gregorian)
+        
+        // Release the retained wrapper now that we're done reading from it.
+        // The local `wrapper` variable still keeps the object alive.
+        Unmanaged<SampleDataWrapper>.fromOpaque(wrapperPtr).release()
+        
         guard let date = calendar.date(from: dateComponents) else {
             throw ParserError.invalidParameters
         }
