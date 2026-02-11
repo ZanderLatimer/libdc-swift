@@ -14,7 +14,6 @@ let package = Package(
         ),
         .library(
             name: "LibDCBridge",
-            type: .dynamic,
             targets: ["LibDCBridge"]
         )
     ],
